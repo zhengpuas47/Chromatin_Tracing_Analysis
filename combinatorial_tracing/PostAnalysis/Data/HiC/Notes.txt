@@ -1,1 +1,0 @@
-Data from Rao et al. Cell 2014. The reads are for the 1Mb centered around the ~1000 30kb regions targeted in the imaging study.
