@@ -14,6 +14,8 @@ from ..visual_tools import get_seed_points_base
 def __init__():
     pass
 
+
+
 # integrated function to get seeds
 def get_seeds(im, max_num_seeds=None, th_seed=150, 
               th_seed_per=95, use_percentile=False,
@@ -21,6 +23,7 @@ def get_seeds(im, max_num_seeds=None, th_seed=150,
               gfilt_size=0.75, background_gfilt_size=10,
               filt_size=3, min_edge_distance=2,
               use_dynamic_th=True, dynamic_niters=10, min_dynamic_seeds=1,
+              remove_hot_pixel=True, hot_pixel_th=3,
               return_h=False, verbose=False,
               ):
     """Function to fully get seeding pixels given a image and thresholds.
@@ -81,7 +84,8 @@ def get_seeds(im, max_num_seeds=None, th_seed=150,
     ## do seeding
     if not use_dynamic_th:
         dynamic_niters = 1 # setting only do seeding once
-    
+    else:
+        dynamic_niters = int(dynamic_niters)
     # front filter:
     if gfilt_size:
         _max_im = gaussian_filter(_im, gfilt_size)
@@ -104,16 +108,23 @@ def get_seeds(im, max_num_seeds=None, th_seed=150,
         _coords = np.where((_max_ft == _max_im) & (_min_ft != _min_im) & (_max_ft-_min_ft >= _current_seed_th))
         # remove edges
         if min_edge_distance > 0:
-            _keep_flags = np.ones(len(_coords[0]), dtype=np.bool)
-            for _ic, _cs in enumerate(_coords):
-                _keep_flags = _keep_flags * ((_cs >= min_edge_distance) & (_im.shape[_ic]-_cs >= min_edge_distance))
+            _keep_flags = remove_edge_points(_im, _coords, min_edge_distance)
             _coords = tuple(_cs[_keep_flags] for _cs in _coords)
+        # if got enough seeds, proceed.
         if len(_coords[0]) >= min_dynamic_seeds:
             break
     # print current th
     if verbose and use_dynamic_th:
         print(f"->{_current_seed_th:.2f}")
-
+    # hot pixels
+    if remove_hot_pixel:
+        _,_x,_y = _coords
+        _xy_str = [str([np.round(x_,1),np.round(y_,1)]) 
+                    for x_,y_ in zip(_x,_y)]
+        _unique_xy_str, _cts = np.unique(_xy_str, return_counts=True)
+        _keep_hot = np.array([_xy not in _unique_xy_str[_cts>=hot_pixel_th] 
+                             for _xy in _xy_str],dtype=bool)
+        _coords = tuple(_cs[_keep_hot] for _cs in _coords)
     # get heights
     _hs = (_max_ft - _min_ft)[_coords]
     _final_coords = np.array(_coords) + _local_edges[:, np.newaxis] # adjust to absolute coordinates
@@ -131,33 +142,56 @@ def get_seeds(im, max_num_seeds=None, th_seed=150,
     
     return _final_coords
 
+def remove_edge_points(im, T_seeds, distance=2):
+    
+    im_size = np.array(np.shape(im))
+    _seeds = np.array(T_seeds)[:len(im_size),:].transpose()
+    flags = []
+    for _seed in _seeds:
+        _f = ((_seed >= distance) * (_seed <= im_size-distance)).all()
+        flags.append(_f)
+    
+    return np.array(flags, dtype=np.bool)
+
+
 # fit the entire field of view image
-def fit_fov_image(im, channel, max_num_seeds=500,
-                  seed_gft_size=0.75, background_gft_size=10, local_ft_size=3,
-                  th_seed=None, hot_pix_th=5, remove_edge=True, 
+def fit_fov_image(im, channel, seeds=None, max_num_seeds=500,
+                  th_seed=300, th_seed_per=95, use_percentile=False, 
+                  use_dynamic_th=True, 
+                  dynamic_niters=10, min_dynamic_seeds=1,
+                  remove_hot_pixel=True, seeding_kwargs={}, 
                   fit_radius=5, init_sigma=_sigma_zxy, weight_sigma=0, 
+                  normalize_backgroud=False, normalize_local=False, 
+                  background_args={}, 
                   fitting_args={}, verbose=True):
     """Function to merge seeding and fitting for the whole fov image"""
+
     ## check inputs
-    if th_seed is None:
-        _th_seed = _seed_th[str(channel)]
-    else:
-        _th_seed = float(th_seed)
+    _th_seed = float(th_seed)
     if verbose:
         print(f"-- start fitting spots in channel:{channel}, ", end='')
         _fit_time = time.time()
     ## seeding
-    _seeds = get_seed_points_base(im, seed_gft_size, background_gft_size,
-                                  local_ft_size, th_seed=_th_seed, hot_pix_th=hot_pix_th)
-    if max_num_seeds is not None and max_num_seeds > 0:
-        _seeds = _seeds[:, :int(max_num_seeds)]
-    if remove_edge:
-        _seeds = remove_edge_seeds(im, _seeds, np.ceil(local_ft_size/2))
-    if verbose:
-        print(f"{len(_seeds.T)} seeded, ", end='')
+    if seeds is None:
+        _seeds = get_seeds(im, max_num_seeds=max_num_seeds,
+                        th_seed=th_seed, th_seed_per=th_seed_per,
+                        use_percentile=use_percentile,
+                        use_dynamic_th=use_dynamic_th, 
+                        dynamic_niters=dynamic_niters,
+                        min_dynamic_seeds=min_dynamic_seeds,
+                        remove_hot_pixel=remove_hot_pixel,
+                        return_h=False, verbose=False,
+                        **seeding_kwargs,)
+        if verbose:
+            print(f"{len(_seeds)} seeded, ", end='')
+    else:
+        _seeds = np.array(seeds)[:,:len(np.shape(im))]
+        if verbose:
+            print(f"{len(_seeds)} given, ", end='')
+
     ## fitting
     _fitter = Fitting_v3.iter_fit_seed_points(
-        im, _seeds, radius_fit=fit_radius, 
+        im, _seeds.T, radius_fit=fit_radius, 
         init_w=init_sigma, weight_sigma=weight_sigma,
         **fitting_args,
     )    
@@ -167,21 +201,33 @@ def fit_fov_image(im, channel, max_num_seeds=500,
     _fitter.repeatfit()
     # get spots
     _spots = np.array(_fitter.ps)
+    _spots = _spots[np.sum(np.isnan(_spots),axis=1)==0] # remove NaNs
+    # normalize intensity if applicable
+    if normalize_backgroud and not normalize_local:
+        from ..io_tools.load import find_image_background 
+        _back = find_image_background(im, **background_args)
+        if verbose:
+            print(f"normalize total background:{_back:.2f}, ", end='')
+        _spots[:,0] = _spots[:,0] / _back
+    elif normalize_local:
+        from ..io_tools.load import find_image_background
+        from ..io_tools.crop import generate_neighboring_crop
+        _backs = []
+        for _pt in _spots:
+            _crop = generate_neighboring_crop(_pt[1:4],
+                                              crop_size=fit_radius*2,
+                                              single_im_size=np.array(np.shape(im)))
+            _cropped_im = im[_crop]
+            _backs.append(find_image_background(_cropped_im, **background_args))
+        if verbose:
+            print(f"normalize local background for each spot, ", end='')
+        _spots[:,0] = _spots[:,0] / np.array(_backs)
+
     if verbose:
         print(f"{len(_spots)} fitted in {time.time()-_fit_time:.3f}s.")
     return _spots
 
 
-def remove_edge_seeds(im, T_seeds, distance=2):
-    im_size = np.array(np.shape(im))
-    _seeds = np.array(T_seeds[:len(im_size),:]).transpose()
-    flags = []
-    for _seed in _seeds:
-        _f = ((_seed >= distance) * (_seed <= im_size)).all()
-        flags.append(_f)
-    _kept_seeds = T_seeds[:, np.array(flags, dtype=np.bool)]
- 
-    return _kept_seeds
 
 
 # integrated function to do gaussian fitting
@@ -189,8 +235,11 @@ def remove_edge_seeds(im, T_seeds, distance=2):
 def get_centers(im, seeds=None, th_seed=150, 
                 th_seed_per=98, use_percentile=False,
                 sel_center=None, seed_radius=40,
-                max_num_seeds=None, use_dynamic_th=True, min_num_seeds=1,
-                seed_kwargs={}, fit_radius=5, 
+                max_num_seeds=None, use_dynamic_th=True, 
+                min_num_seeds=1,
+                remove_hot_pixel=True, hot_pixel_th=3,
+                seed_kwargs={}, 
+                fit_radius=5, 
                 remove_close_pts=True, close_threshold=0.1, 
                 verbose=False):
     '''Fit centers for one image:
@@ -214,8 +263,11 @@ def get_centers(im, seeds=None, th_seed=150,
                           sel_center=sel_center, seed_radius=seed_radius,
                           use_dynamic_th=use_dynamic_th,
                           min_dynamic_seeds=min_num_seeds,
+                          remove_hot_pixel=remove_hot_pixel, 
+                          hot_pixel_th=hot_pixel_th,
                           return_h=False, verbose=verbose, 
                           **seed_kwargs)
+
     # fitting
     fitter = iter_fit_seed_points(im, seeds.T, radius_fit=fit_radius)
     fitter.firstfit()

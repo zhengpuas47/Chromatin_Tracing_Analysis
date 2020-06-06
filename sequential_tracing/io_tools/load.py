@@ -6,7 +6,7 @@ from scipy.ndimage.interpolation import shift, map_coordinates
 
 ## Load other sub-packages
 from .. import visual_tools, get_img_info, corrections, alignment_tools
-
+from .. import _image_dtype
 ## Load shared parameters
 from . import _distance_zxy, _image_size, _allowed_colors, _corr_channels, _correction_folder
 from . import _num_buffer_frames, _num_empty_frames
@@ -132,28 +132,6 @@ def multi_crop_image_fov(filename, channels, crop_limit_list,
         return _cropped_im_list
 
 
-def _generate_drift_crops(coord_sel=None, drift_size=500, single_im_size=_image_size):
-    """Function to generate drift crop from a selected center and given drift size"""
-    _single_im_size = np.array(single_im_size)
-    if coord_sel is None:
-        coord_sel = np.array(_single_im_size/2, dtype=np.int)
-    if drift_size is None:
-        drift_size = int(np.max(_single_im_size)/4)
-    # generate crops
-    crop0 = np.array([[0, _single_im_size[0]],
-                      [max(coord_sel[-2]-drift_size, 0), coord_sel[-2]],
-                      [max(coord_sel[-1]-drift_size, 0), coord_sel[-1]]], dtype=np.int)
-    crop1 = np.array([[0, _single_im_size[0]],
-                      [coord_sel[-2], min(coord_sel[-2] +
-                                          drift_size, _single_im_size[-2])],
-                      [coord_sel[-1], min(coord_sel[-1]+drift_size, _single_im_size[-1])]], dtype=np.int)
-    crop2 = np.array([[0, _single_im_size[0]],
-                      [coord_sel[-2], min(coord_sel[-2] +
-                                          drift_size, _single_im_size[-2])],
-                      [max(coord_sel[-1]-drift_size, 0), coord_sel[-1]]], dtype=np.int)
-    # merge into one array which is easier to feed into function
-    selected_crops = np.stack([crop0, crop1, crop2])
-    return selected_crops
 
 
 def correct_fov_image(dax_filename, sel_channels, 
@@ -348,7 +326,8 @@ def correct_fov_image(dax_filename, sel_channels,
             _drift_time = time.time()
         # get required parameters
         if drift_crops is None:
-            drift_crops = _generate_drift_crops(drift_size=drift_size, single_im_size=single_im_size)
+            from ..correction_tools.alignment import generate_drift_crops
+            drift_crops = generate_drift_crops(drift_size=drift_size, single_im_size=single_im_size)
         from ..correction_tools.alignment import align_single_image
         _drift, _drift_success = align_single_image(
                                 _ims[_load_channels.index(_bead_channel)],
@@ -458,6 +437,9 @@ def correct_fov_image(dax_filename, sel_channels,
                     _func = generate_warp_function(chromatic_profile[_ch], _drift)
                 else:
                     _func = generate_warp_function(None, _drift)
+            else:
+                def _func(_spots):
+                    return _spots
             _warp_functions.append(_func)
         # clear
         if verbose:
@@ -595,3 +577,50 @@ def load_correction_profile(corr_type, corr_channels=_corr_channels,
             _pf[_channel] = np.load(os.path.join(correction_folder, _basename))
 
     return _pf 
+
+def find_image_background(im, dtype=_image_dtype, bin_size=10, make_plot=False, max_iter=10):
+    """Function to calculate image background
+    Inputs: 
+        im: image, np.ndarray,
+        dtype: data type for image, numpy datatype (default: np.uint16) 
+        bin_size: size of histogram bin, smaller -> higher precision and longer time,
+            float (default: 10)
+    Output: 
+        _background: determined background level, float
+    """
+    
+    if dtype is None:
+        dtype = im.dtype 
+    _cts, _bins = np.histogram(im, 
+                               bins=np.arange(np.iinfo(dtype).min, 
+                                              np.iinfo(dtype).max,
+                                              bin_size)
+                               )
+    _peaks = []
+    # gradually lower height to find at least one peak
+    _height = np.size(im)/50
+    _iter = 0
+    while len(_peaks) == 0:
+        _height = _height / 2 
+        _peaks, _params = scipy.signal.find_peaks(_cts, height=_height)
+        _iter += 1
+        if _iter > max_iter:
+            break
+    # select highest peak
+    if _iter > max_iter:
+        _background = np.nanmedian(im)
+    else:
+        _sel_peak = _peaks[np.argmax(_params['peak_heights'])]
+        # define background as this value
+        _background = (_bins[_sel_peak] + _bins[_sel_peak+1]) / 2
+    # plot histogram if necessary
+    if make_plot:
+        import matplotlib.pyplot as plt
+        plt.figure(dpi=100)
+        plt.hist(np.ravel(im), bins=np.arange(np.iinfo(dtype).min, 
+                                              np.iinfo(dtype).max,
+                                              bin_size))
+        plt.xlim([np.min(im), np.max(im)])     
+        plt.show()
+
+    return _background

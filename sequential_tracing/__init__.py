@@ -16,7 +16,8 @@ _corr_channels = ['750', '647', '561']
 # number of buffer frames and empty frames
 _num_buffer_frames = 10
 _num_empty_frames = 0
-
+# image datatype
+_image_dtype = np.uint16
 
 # library design tools
 from . import library_tools
@@ -26,8 +27,7 @@ from . import spot_tools
 from . import visual_tools
 # everything about aligments
 from . import alignment_tools
-# everything about domain analysis
-from . import domain_tools
+
 # functions to get hybe, folders
 from . import get_img_info
 # Drift and illumination correction
@@ -41,8 +41,12 @@ from . import postanalysis
 from . import figure_tools
 # functions to read and save images
 from . import io_tools
+# everything about domain analysis
+from . import domain_tools
 # function to call and evaluate compartments
 from . import compartment_tools
+# function to analyze structural features
+from . import structure_tools
 ## import exteral functions
 from .External import Fitting_v3
 from .External import DomainTools
