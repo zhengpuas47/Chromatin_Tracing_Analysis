@@ -30,7 +30,7 @@ def seq2Int_rc(seq):
 # Recompile on Linux by running in a cell in a jupyter notebook in the current directory: !python C_Tools\setup.py build_ext --inplace
 # If too complicated, comment out line bellow and have patience.
 sys.path.append(os.getcwd())
-from seqint import seq2Int,seq2Int_rc
+#from seqint import seq2Int,seq2Int_rc
 
 import scipy.sparse as ss
 import time
