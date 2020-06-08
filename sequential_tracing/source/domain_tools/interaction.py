@@ -637,3 +637,26 @@ def loop_out_markers(coordinates, domain_starts, norm_mat=None, metric='median',
 
 def apply_kwargs(function, args, kwargs):
     return function(*args, **kwargs)
+
+
+def call_domain_contact(zxys, domain_starts, cutoff=2):
+    """Function to call domain pairs"""
+    
+    bad = np.isnan(zxys[:,0])
+    zxys_ = zxys[~bad]
+    mat=squareform(pdist(zxys_))
+    dom_starts = np.zeros(len(zxys))
+    dom_starts[domain_starts[:-1]]=1
+    dom_starts = list(np.where(dom_starts[~bad])[0])+[len(zxys_)]
+    dom_pairs=[]
+    for i in range(len(dom_starts)-1):
+        for j in range(i):
+            in_i = squareform(mat[dom_starts[i]:dom_starts[i+1],dom_starts[i]:dom_starts[i+1]])
+            in_j = squareform(mat[dom_starts[j]:dom_starts[j+1],dom_starts[j]:dom_starts[j+1]])
+            in_doms = np.median(np.concatenate([in_i,in_j]))
+            out_doms = np.median(mat[dom_starts[i]:dom_starts[i+1],dom_starts[j]:dom_starts[j+1]])
+            ins_score = out_doms/in_doms
+            if ins_score<cutoff:
+                dom_pairs.append([i,j])
+                
+    return dom_pairs
