@@ -1,17 +1,26 @@
 # Chromatin_Tracing_Analysis
+
 Repository for codes analyzing sequential and combinatorial choromatin imaging data
 
 This repository contains two main sections, as following:
 
-1. Combinatorial_tracing - contains all code and examples relevant to combinatorial genome-scale chromatin imaging. Code is separated into the following categories, each contained in an individual sub-folder. Each of these sub-fodlers contains a "functions" folder, in which all functions and classses are defined in .py files. In addition, it contains Jupyter notebook (.ipynb) files, in which examples of scripts running the functions on data are given:
-   a. BarcodeGeneration - contains the code and examples for generating barcodes and assigning them to genomic loci of interest
-   b. ImageAnalysis - contains all code and examples used from the point at which raw microscopy images are obtained, until a set of detected loci and their coordinates (as well as transcriptional state and location of nuclear bodies, if relevant) is calculated
-   c. PostAnalysis - contains all functions and examples scripts used to generate the figures in the paper from imaging data (after conversion to a list of localizations for all detected loci, as outlined in ImageAnalysis). This section also contains a Data sub-folder, in which the actual positions, transcriptional states and distances from nuclear bodies measured in the experiments reported in this study are made available
-   
-2. Sequential_tracing - contains all code and examples relevant to sequential, chromosome-wide chromatin imaging. This section contains a source sub-folder, in which all function and class-containing .py files are organized. The ImageAnalysis fodler contains a Jupyter notebook (.ipynb) file with example scripts, showing how to run the functions on data. The Data sub-folder contains the actual positions, transcriptional states and distances from nuclear bodies measured in the experiments reported in this study
+1. Combinatorial_tracing - contains the code and examples scripts used for analysing to combinatorial genome-scale chromatin tracing data. Code is separated into seaparate categories, each contained in an individual sub-folder. Each of these sub-folders contains a "functions" folder, in which all functions and classses are defined in .py files. In addition, it contains Jupyter notebook (.ipynb) files, demonstrating the use of the functions:
+   a. BarcodeGeneration - contains the code and example scripts for generating barcodes and assigning them to genomic loci of interest
+   b. ImageAnalysis - contains all code used to analyse the raw microscopy images and obtain a set of 3D positions of the genomic loci in each individual cell (as well as, where available, the transcriptional state and location of nuclear bodies) .
+   c. PostAnalysis - contains the code and example scripts used to perform statistical analysis on the 3D single-cell positions.
+These functions are intended to be used with Phyton 2.7
 
-The algoritms writen by Bogdan Bintu, Pu Zheng and Seon Kinrot
+2. Sequential_tracing - contains the code and examples scripts for analysing the sequential, chromosome-wide chromatin tracing data. This section is organized in the following sections: 
+    a. Source - contains all function and classes within .py files. 
+    b. ImageAnalysis - contains a Jupyter notebook (.ipynb) file with example scripts used to analyse the raw microscopy images and obtain a set of 3D postions of the genomic loci in each individual cells.
+    c. PostAnalysis - contains example scripts to statistically analyze the 3D single-cell positions.
+These functions are intended to be used with Phyton 3.4
 
-Correspondence: Bogdan Bintu and Xiaowei Zhuang
+3. Data - contains tab delimited files with the 3D positions of the chromatin loci imaged in each cell and, where available the transcriptional activity, the distance from the nuclear landmarks measured and the cell-cycle state.
+
+
+The algoritms writen by Bogdan Bintu, Pu Zheng, Seon Kinrot and Jun-Han Su.
+
+Correspondence: Bogdan Bintu (bbinu -at- g.harvard.edu) and Xiaowei Zhuang.
 
 June 6th, 2020
