@@ -21,6 +21,6 @@ These functions are intended to be used with Phyton 3.4
 
 The algoritms writen by Bogdan Bintu, Pu Zheng, Seon Kinrot and Jun-Han Su.
 
-Correspondence: Bogdan Bintu (bbinu -at- g.harvard.edu) and Xiaowei Zhuang.
+Correspondence: Bogdan Bintu (bbintu -at- g.harvard.edu) and Xiaowei Zhuang.
 
 June 6th, 2020
