@@ -11,10 +11,10 @@ This repository contains two main sections, as following:
 These functions are intended to be used with Phyton 2.7
 
 2. Sequential_tracing - contains the code and examples scripts for analysing the sequential, chromosome-wide chromatin tracing data. This section is organized in the following sections: 
-    a. Source - contains all function and classes within .py files. 
-    b. ImageAnalysis - contains a Jupyter notebook (.ipynb) file with example scripts used to analyse the raw microscopy images and obtain a set of 3D postions of the genomic loci in each individual cells.
+    a. Source - contains all function and classes within .py files which are organized as a module.
+    b. ImageAnalysis - contains a Jupyter notebook (.ipynb) file with example scripts used to analyse the raw microscopy images and obtain a set of 3D postions of the genomic loci in chromosomes of each individual cells.
     c. PostAnalysis - contains example scripts to statistically analyze the 3D single-cell positions.
-These functions are intended to be used with Phyton 3.4
+These functions are compatible with Python 3.7 (Anaconda distribution, newest release). Please see further detailed installation guide in sequential_tracing folder. 
 
 3. Data - contains tab delimited files with the 3D positions of the chromatin loci imaged in each cell and, where available the transcriptional activity, the distance from the nuclear landmarks measured and the cell-cycle state.
 
